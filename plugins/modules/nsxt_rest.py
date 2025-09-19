@@ -219,19 +219,23 @@ class VMwareNSXTRest():
         if self.method == "post" or self.method == "put" or self.method == "patch":
             before_resp = self.operate_nsxt(method="get", ignore_errors=True)
             if before_resp:
-                before_revision = before_resp["_revision"]
+                before_revision = before_resp.get("_revision")
             else:
                 before_revision = ""
 
             _ = self.operate_nsxt(method=self.method)
 
+            changed = True
             after_resp = self.operate_nsxt(method="get")
-            after_revision = after_resp["_revision"]
+            if after_resp:
+                try:
+                    changed = before_revision != after_resp["_revision"]
+                except KeyError:
+                    self.module.warn(
+                        "Defaulting to changed=True because resource %s does not have _revision attribute" % self.path
+                    )
 
-            if before_revision == after_revision:
-                self.module.exit_json(changed=False, body=after_resp)
-            else:
-                self.module.exit_json(changed=True, body=after_resp)
+            self.module.exit_json(changed=changed, body=after_resp)
 
         if self.method == "delete":
             resp = self.operate_nsxt(method="get", ignore_errors=True)
